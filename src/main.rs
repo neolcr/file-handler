@@ -7,6 +7,46 @@ fn ensure_flush() {
     };
 }
 
+fn list_dir_recursively() {
+    let current_dir = std::fs::canonicalize(".");
+    println!("Entering DIR: {:?}", current_dir);
+
+    match current_dir {
+        Ok(path) => match path.to_str(){
+            Some(abs_path) => match std::fs::read_dir(&abs_path){
+                Ok(rd) => {
+                    for entry in rd {
+                        match entry {
+                            Ok(entry) => match entry.file_type(){
+                                Ok(file_type) => {
+                                    if file_type.is_dir() {
+                                        match std::env::set_current_dir(entry.path()){
+                                            Ok(_) => list_dir_recursively(),
+                                            Err(e) => println!("{}",e)
+                                        }
+                                        
+                                    } else if file_type.is_file(){
+                                        println!("f -> {:?}", entry.file_name())
+                                    }
+                                },
+                                Err(e) => println!("{}",e)
+                                
+                            },
+                            Err(e) => println!("{}", e)
+                        }
+                    }
+    
+                },
+                Err(e) => println!("Error: {}", e)
+            },
+            None => println!("None")
+
+        },
+        Err(e) => println!("Error: {}",e)
+    }
+
+}
+
 fn list_directory() {
     let current_dir = std::fs::canonicalize(".").expect("Failed to get dir");
 
@@ -19,31 +59,26 @@ fn list_directory() {
     match std::io::stdin().read_line(&mut input) {
         Ok(_) => match std::fs::canonicalize(input.trim()) {
             Ok(path) => match path.to_str() {
-                Some(abs_path) => {
-                    dbg!("Will use path: {}", abs_path.trim());
-
-                    match std::fs::read_dir(&abs_path) {
-                        Ok(rd) => {
-                            dbg!("Read input directory -> OK");
-                            for entry in rd {
-                                match entry {
-                                    Ok(entry) => match entry.file_type() {
-                                        Ok(file_type) => {
-                                            if file_type.is_dir() {
-                                                println!("d -> {:?}", entry.file_name());
-                                            } else if file_type.is_file() {
-                                                println!("f -> {:?}", entry.file_name());
-                                            }
+                Some(abs_path) => match std::fs::read_dir(&abs_path) {
+                    Ok(rd) => {
+                        for entry in rd {
+                            match entry {
+                                Ok(entry) => match entry.file_type() {
+                                    Ok(file_type) => {
+                                        if file_type.is_dir() {
+                                            println!("d -> {:?}", entry.file_name());
+                                        } else if file_type.is_file() {
+                                            println!("f -> {:?}", entry.file_name());
                                         }
-                                        Err(e) => println!("File type error {}", e),
-                                    },
-                                    Err(e) => println!("Error dir entry: {}", e),
-                                }
+                                    }
+                                    Err(e) => println!("File type error {}", e),
+                                },
+                                Err(e) => println!("Error dir entry: {}", e),
                             }
                         }
-                        Err(e) => println!("Read dir error: {}", e),
                     }
-                }
+                    Err(e) => println!("Read dir error: {}", e),
+                },
                 None => println!("None"),
             },
             Err(e) => println!("Str {}", e),
@@ -114,24 +149,23 @@ fn append_file() {
     let current_dir = std::fs::canonicalize(".").expect("Failed to get current directory");
 
     println!("Current directory: {:?}", current_dir);
-
+    print!("Enter file name: ");
     ensure_flush();
 
     let mut input = String::new();
     match std::io::stdin().read_line(&mut input) {
         Ok(_) => {
-            println!("Will append file: {}", input);
             match std::fs::OpenOptions::new()
                 .create(true)
                 .append(true)
                 .open(input)
             {
                 Ok(mut ok) => {
-                    println!("File successfully created with mode option: {:?}", ok);
                     let mut input = String::new();
+                    println!("Enter file content:");
                     match std::io::stdin().read_line(&mut input) {
                         Ok(_) => match ok.write(input.as_bytes()) {
-                            Ok(_) => println!("Content added to file"),
+                            Ok(_) => println!(">>>> Content added to file"),
                             Err(e) => println!("Error {}", e),
                         },
                         Err(e) => println!("Error {}", e),
@@ -148,7 +182,7 @@ fn read_file() {
     let current_dir = std::fs::canonicalize(".").expect("Failed to get current directory");
 
     println!("Current directory: {:?}", current_dir);
-
+    print!("Enter file name: ");
     ensure_flush();
     let mut input = String::new();
     match std::io::stdin().read_line(&mut input) {
@@ -185,6 +219,7 @@ fn main() {
         "a -> append text to file",
         "r -> read file",
         "d -> delete file",
+        "er -> iterate folder recursively",
         "q -> quit",
     ];
     loop {
@@ -192,7 +227,6 @@ fn main() {
         for o in options.iter() {
             println!("{}", o);
         }
-         
 
         let mut input = String::new();
 
@@ -204,6 +238,7 @@ fn main() {
                 "a" => append_file(),
                 "r" => read_file(),
                 "d" => delete_file(),
+                "er" => list_dir_recursively(),
                 "q" => {
                     println!("Salir");
                     break;
